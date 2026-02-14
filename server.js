@@ -8,7 +8,7 @@ import bcrypt from "bcrypt";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
 import path from "path";
-import probe from "probe-image-size"; // npm install probe-image-size
+import probe from "probe-image-size";
 
 const app = express();
 app.use(express.urlencoded({ extended: true }));
@@ -59,6 +59,28 @@ const SUBJECT_MAP = {
   KIS: "KISWAHILI",
   LAN: "LANGO",
 };
+
+// ================== SUBJECT ORDER (for the table) ==================
+const SUBJECT_ORDER = [
+  "ENGLISH",
+  "HISTORY",
+  "GEOGRAPHY",
+  "MATHEMATICS",
+  "PHYSICS",
+  "CHEMISTRY",
+  "BIOLOGY",
+  "IPS",
+  "CRE",
+  "COMMERCE",
+  "IRE",
+  "AGRICULTURE",
+  "ICT",
+  "DHOPADOLA",
+  "LITERATURE IN ENGLISH",
+  "ENTREPRENEURSHIP EDUCATION",
+  "KISWAHILI",
+  "LANGO",
+];
 
 // ================== LOGIN PAGE ==================
 app.get("/", (req, res) => {
@@ -333,7 +355,7 @@ async function getImageDimensions(filePath) {
   }
 }
 
-// ================== GENERATE TESTIMONIALS (optimised) ==================
+// ================== GENERATE TESTIMONIALS ==================
 app.post("/generate", upload.single("excel"), async (req, res) => {
   try {
     const workbook = XLSX.readFile(req.file.path);
@@ -345,7 +367,7 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
     const archive = archiver("zip");
     archive.pipe(output);
 
-    // Process students in batches to avoid too many concurrent writes
+    // Process students in batches
     const BATCH_SIZE = 20;
     const batches = [];
     for (let i = 0; i < students.length; i += BATCH_SIZE) {
@@ -415,7 +437,7 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
             const logoHeight = (dim1.height / dim1.width) * logoWidth;
             doc.image(LOGO1, 50, titleY - logoHeight/2 + 8, { width: logoWidth });
           } else {
-            doc.image(LOGO1, 50, titleY - 25, { width: logoWidth }); // fallback
+            doc.image(LOGO1, 50, titleY - 25, { width: logoWidth });
           }
         }
         if (LOGO2 && fs.existsSync(LOGO2)) {
@@ -438,7 +460,7 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         doc.fontSize(9).text(`MISSION: ${SETTINGS.mission}`, { align: "center" });
 
         // Date (current) on right
-        const today = new Date().toLocaleDateString("en-GB"); // dd/mm/yyyy
+        const today = new Date().toLocaleDateString("en-GB");
         doc.fontSize(10).fillColor("black").text(today, 450, 200, { align: "right" });
 
         // Title
@@ -456,7 +478,7 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         const tableTop = 310;
         const col1 = 50, col2 = 120, col3 = 320, col4 = 550;
         const rowHeight = 20;
-        const rowCount = orderedSubjects.length + 1; // header + data rows
+        const rowCount = orderedSubjects.length + 1;
 
         // Table header
         doc.fontSize(10).font("Helvetica-Bold");
@@ -479,12 +501,10 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
 
         // Draw table grid
         doc.lineWidth(0.5).strokeColor("#000");
-        // Vertical lines
         doc.moveTo(col1, tableTop).lineTo(col1, tableTop + rowCount * rowHeight).stroke();
         doc.moveTo(col2, tableTop).lineTo(col2, tableTop + rowCount * rowHeight).stroke();
         doc.moveTo(col3, tableTop).lineTo(col3, tableTop + rowCount * rowHeight).stroke();
         doc.moveTo(col4, tableTop).lineTo(col4, tableTop + rowCount * rowHeight).stroke();
-        // Horizontal lines
         for (let i = 0; i <= rowCount; i++) {
           const lineY = tableTop + i * rowHeight;
           doc.moveTo(col1, lineY).lineTo(col4, lineY).stroke();
@@ -500,20 +520,17 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         const mottoY = afterTableY + 30;
         doc.fontSize(10).font("Helvetica").text(SETTINGS.footer, 50, mottoY, { align: "center" });
 
-        // Signature block (dotted line + name/rank/title on one line)
+        // Signature block
         const sigY = mottoY + 30;
         doc.fontSize(10);
-        // Dotted line
         doc.text("....................................", 350, sigY - 10, { align: "right" });
-        // Name, rank, title on one line
         doc.text(`Name: ZAINA K. NALUKENGE  Rank: Maj  Title: Head Teacher`, 350, sigY + 5, { align: "right" });
 
-        // QR Code (bottom left)
+        // QR Code
         doc.image(qrImage, 50, 700, { width: 60 });
 
         doc.end();
 
-        // Wait for PDF to finish writing
         await new Promise(resolve => writeStream.on("finish", resolve));
         archive.file(filePath, { name: `${safeName}.pdf` });
       }));
