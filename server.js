@@ -7,7 +7,6 @@ import QRCode from "qrcode";
 import bcrypt from "bcrypt";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
-import path from "path";
 import probe from "probe-image-size";
 
 const app = express();
@@ -31,12 +30,15 @@ let SETTINGS = {
   vision: "To produce a morally upright and self reliant future generation.",
   mission: "To provide affordable quality education to our community.",
   footer: "Victory Is Our Challenge",
-  headTeacher: "ZAINA .K. NALUKENGE (Maj.)",
+  headTeacher: "ZAINA .K. NALUKENGE",
+  headTeacherRank: "Maj.",
+  headTeacherTitle: "HEAD TEACHER"
 };
 
 let LOGO1 = null;
 let LOGO2 = null;
 let DATABASE = {};
+let serialCounter = 1;
 
 // ================== SUBJECT MAPPING ==================
 const SUBJECT_MAP = {
@@ -60,7 +62,6 @@ const SUBJECT_MAP = {
   LAN: "LANGO",
 };
 
-// ================== SUBJECT ORDER (for the table) ==================
 const SUBJECT_ORDER = [
   "ENGLISH",
   "HISTORY",
@@ -306,7 +307,9 @@ function DASHBOARD_HTML() {
           <textarea name="vision" placeholder="Vision">${SETTINGS.vision}</textarea>
           <textarea name="mission" placeholder="Mission">${SETTINGS.mission}</textarea>
           <input name="footer" placeholder="Footer Motto" value="${SETTINGS.footer}">
-          <input name="headTeacher" placeholder="Head Teacher's Name" value="${SETTINGS.headTeacher}">
+          <input name="headTeacher" placeholder="Head Teacher Name" value="${SETTINGS.headTeacher}">
+          <input name="headTeacherRank" placeholder="Head Teacher Rank" value="${SETTINGS.headTeacherRank}">
+          <input name="headTeacherTitle" placeholder="Head Teacher Title" value="${SETTINGS.headTeacherTitle}">
           <button>Save Settings</button>
         </form>
       </div>
@@ -367,6 +370,9 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
     const archive = archiver("zip");
     archive.pipe(output);
 
+    // Reset serial counter for each batch
+    serialCounter = 1;
+
     // Process students in batches
     const BATCH_SIZE = 20;
     const batches = [];
@@ -381,6 +387,16 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         const result = s["Result"] || "";
         const project = s["PROJECT WORK"] || "";
         const achievements = s["SUBJECT ACHIEVEMENTS"] || "";
+        const sex = s["Sex"] || "";
+        const dob = s["DATE OF BIRTH"] || "";
+        
+        // Format gender
+        const gender = sex === "M" ? "MALE" : sex === "F" ? "FEMALE" : sex;
+        
+        // Generate serial number: UNEB/RASS/GENDER/SEQUENCE/2025
+        const genderCode = sex === "M" ? "M" : sex === "F" ? "F" : "X";
+        const serialNumber = `UNEB/RASS/${genderCode}/${String(serialCounter).padStart(3, '0')}/2025`;
+        serialCounter++;
 
         // Parse grades
         const gradeMap = {};
@@ -399,85 +415,114 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
 
         // Filter subjects to only those the candidate sat for
         const subjectsPresent = Object.keys(gradeMap);
-        // But we need to preserve the order from the official list
         const orderedSubjects = SUBJECT_ORDER.filter(subj => subjectsPresent.includes(subj));
 
         const id = uuidv4();
-        DATABASE[id] = { name, indexNo, result, project };
-        const verifyURL = `${req.protocol}://${req.get('host')}/verify/${id}`;
-        const qrImage = await QRCode.toDataURL(verifyURL);
+        
+        // Store complete data for QR code
+        DATABASE[id] = { 
+          name, 
+          indexNo, 
+          result, 
+          project,
+          sex: gender,
+          dob,
+          year: "2025",
+          serialNumber
+        };
+        
+        // Enhanced QR code with all verification data
+        const qrData = JSON.stringify({
+          name,
+          indexNo,
+          sex: gender,
+          dob,
+          year: "2025",
+          serialNumber,
+          result,
+          project
+        });
+        
+        const qrImage = await QRCode.toDataURL(qrData);
 
         const safeName = name.replace(/[^a-z0-9]/gi, "_").substring(0, 50);
         const filePath = `generated/${safeName}.pdf`;
 
-        const doc = new PDFDocument({ size: "A4", margin: 50 });
+        const doc = new PDFDocument({ size: "A4", margin: 40 }); // Reduced margin
         const writeStream = fs.createWriteStream(filePath);
         doc.pipe(writeStream);
 
-        // ---------- TRIPLE-COLOUR BORDER ----------
-        const borderMargin = 15;
+        // ---------- THICK TRIPLE-COLOUR BORDER ----------
+        const borderMargin = 10;
         const borderWidth = doc.page.width - 2 * borderMargin;
         const borderHeight = doc.page.height - 2 * borderMargin;
         const cornerRadius = 20;
 
+        // Thicker borders - 3pt each
         doc.roundedRect(borderMargin, borderMargin, borderWidth, borderHeight, cornerRadius)
-           .lineWidth(2).strokeColor("#FF0000").stroke();
-        doc.roundedRect(borderMargin + 1, borderMargin + 1, borderWidth - 2, borderHeight - 2, cornerRadius)
-           .lineWidth(2).strokeColor("#000000").stroke();
-        doc.roundedRect(borderMargin + 2, borderMargin + 2, borderWidth - 4, borderHeight - 4, cornerRadius)
-           .lineWidth(2).strokeColor("#FFFF00").stroke();
+           .lineWidth(3).strokeColor("#FF0000").stroke();
+        doc.roundedRect(borderMargin + 3, borderMargin + 3, borderWidth - 6, borderHeight - 6, cornerRadius)
+           .lineWidth(3).strokeColor("#000000").stroke();
+        doc.roundedRect(borderMargin + 6, borderMargin + 6, borderWidth - 12, borderHeight - 12, cornerRadius)
+           .lineWidth(3).strokeColor("#FFFF00").stroke();
 
-        // ---------- LOGOS (aligned with school name) ----------
-        const titleY = 140;
+        // ---------- LOGOS (positioned higher) ----------
+        const titleY = 70; // Reduced from 140
         const logoWidth = 70;
 
         if (LOGO1 && fs.existsSync(LOGO1)) {
           const dim1 = await getImageDimensions(LOGO1);
           if (dim1) {
             const logoHeight = (dim1.height / dim1.width) * logoWidth;
-            doc.image(LOGO1, 50, titleY - logoHeight/2 + 8, { width: logoWidth });
+            doc.image(LOGO1, 40, titleY - logoHeight/2, { width: logoWidth });
           } else {
-            doc.image(LOGO1, 50, titleY - 25, { width: logoWidth });
+            doc.image(LOGO1, 40, titleY - 25, { width: logoWidth });
           }
         }
         if (LOGO2 && fs.existsSync(LOGO2)) {
           const dim2 = await getImageDimensions(LOGO2);
           if (dim2) {
             const logoHeight = (dim2.height / dim2.width) * logoWidth;
-            doc.image(LOGO2, doc.page.width - 120, titleY - logoHeight/2 + 8, { width: logoWidth });
+            doc.image(LOGO2, doc.page.width - 110, titleY - logoHeight/2, { width: logoWidth });
           } else {
-            doc.image(LOGO2, doc.page.width - 120, titleY - 25, { width: logoWidth });
+            doc.image(LOGO2, doc.page.width - 110, titleY - 25, { width: logoWidth });
           }
         }
 
         // School header
         doc.fontSize(16).fillColor("#003366")
-           .text(SETTINGS.schoolName, 50, titleY, { align: "center" });
+           .text(SETTINGS.schoolName, 0, titleY, { align: "center" });
         doc.fontSize(9).fillColor("#2d3748")
            .text(SETTINGS.address, { align: "center" });
         doc.fontSize(9).fillColor("#4a5568")
            .text(`VISION: ${SETTINGS.vision}`, { align: "center" });
         doc.fontSize(9).text(`MISSION: ${SETTINGS.mission}`, { align: "center" });
 
-        // Date (current) on right
+        // Date on right
         const today = new Date().toLocaleDateString("en-GB");
-        doc.fontSize(10).fillColor("black").text(today, 450, 200, { align: "right" });
+        doc.fontSize(10).fillColor("black").text(today, 450, 130, { align: "right" });
 
         // Title
         doc.fontSize(14).fillColor("#003366")
-           .text("UCE TESTIMONIAL 2025.", 50, 220, { align: "center", underline: true });
+           .text("UCE TESTIMONIAL 2025.", 0, 150, { align: "center", underline: true });
 
-        // Name, Index, LIN lines
+        // Candidate details - removed dotted lines, added gender and DOB
         doc.fontSize(11);
-        doc.text(`NAME: ${name}`, 50, 250);
-        doc.text('.'.repeat(30), 200, 250, { width: 150 });
-        doc.text(`INDEX NO: ${indexNo}`, 350, 250);
-        doc.text("LIN..........................................................", 50, 270);
+        doc.text(`CANDIDATE'S NAME: ${name}`, 50, 180);
+        doc.text(`INDEX NO: ${indexNo}`, 350, 180);
+        
+        // Add serial number
+        doc.fontSize(9).fillColor("#666").text(`Serial: ${serialNumber}`, 50, 195);
+        
+        // Gender and DOB
+        doc.fontSize(11).fillColor("black");
+        doc.text(`SEX: ${gender}`, 50, 215);
+        doc.text(`DATE OF BIRTH: ${dob}`, 250, 215);
 
-        // Table: only subjects present
-        const tableTop = 310;
+        // Table
+        const tableTop = 250;
         const col1 = 50, col2 = 120, col3 = 320, col4 = 550;
-        const rowHeight = 20;
+        const rowHeight = 22; // Slightly taller rows
         const rowCount = orderedSubjects.length + 1;
 
         // Table header
@@ -499,12 +544,13 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
           sno++;
         }
 
-        // Draw table grid
-        doc.lineWidth(0.5).strokeColor("#000");
+        // Draw table grid with thicker lines
+        doc.lineWidth(1).strokeColor("#000");
         doc.moveTo(col1, tableTop).lineTo(col1, tableTop + rowCount * rowHeight).stroke();
         doc.moveTo(col2, tableTop).lineTo(col2, tableTop + rowCount * rowHeight).stroke();
         doc.moveTo(col3, tableTop).lineTo(col3, tableTop + rowCount * rowHeight).stroke();
         doc.moveTo(col4, tableTop).lineTo(col4, tableTop + rowCount * rowHeight).stroke();
+        
         for (let i = 0; i <= rowCount; i++) {
           const lineY = tableTop + i * rowHeight;
           doc.moveTo(col1, lineY).lineTo(col4, lineY).stroke();
@@ -517,17 +563,23 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         doc.text(`PROJECT: ${project}`, 300, afterTableY);
 
         // Footer motto
-        const mottoY = afterTableY + 30;
+        const mottoY = afterTableY + 25;
         doc.fontSize(10).font("Helvetica").text(SETTINGS.footer, 50, mottoY, { align: "center" });
 
-        // Signature block
-        const sigY = mottoY + 30;
+        // Signature block - exactly like Word document
+        const sigY = mottoY + 35;
         doc.fontSize(10);
-        doc.text("....................................", 350, sigY - 10, { align: "right" });
-        doc.text(`Name: ZAINA K. NALUKENGE  Rank: Maj  Title: Head Teacher`, 350, sigY + 5, { align: "right" });
+        
+        // Dotted line
+        doc.text("....................................", 350, sigY - 5, { align: "right" });
+        
+        // Name, Rank, Title on separate lines as in Word document
+        doc.text(SETTINGS.headTeacher, 350, sigY + 10, { align: "right" });
+        doc.text(SETTINGS.headTeacherRank, 350, sigY + 25, { align: "right" });
+        doc.text(SETTINGS.headTeacherTitle, 350, sigY + 40, { align: "right" });
 
-        // QR Code
-        doc.image(qrImage, 50, 700, { width: 60 });
+        // QR Code (bottom left)
+        doc.image(qrImage, 40, 700, { width: 70 });
 
         doc.end();
 
@@ -548,24 +600,36 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
 app.get("/verify/:id", (req, res) => {
   const s = DATABASE[req.params.id];
   if (!s) return res.send("<h2>Invalid Certificate</h2>");
+  
   res.send(`
   <!DOCTYPE html>
   <html>
-  <head><title>Verification</title><style>
-    body{font-family:Arial;background:#f4f6f9;padding:40px;}
-    .card{background:white;padding:30px;border-radius:10px;max-width:500px;margin:auto;box-shadow:0 5px 20px rgba(0,0,0,0.1);}
-    h2{color:#003366;}
-    .valid{color:green;font-weight:bold;}
-  </style></head>
+  <head>
+    <title>Certificate Verification</title>
+    <style>
+      body{font-family:Arial;background:#f4f6f9;padding:40px;}
+      .card{background:white;padding:30px;border-radius:10px;max-width:600px;margin:auto;box-shadow:0 5px 20px rgba(0,0,0,0.1);}
+      h2{color:#003366;}
+      .valid{color:green;font-weight:bold;font-size:24px;}
+      .info-grid{display:grid;grid-template-columns:1fr 2fr;gap:10px;margin:20px 0;}
+      .label{font-weight:bold;color:#555;}
+    </style>
+  </head>
   <body>
-  <div class="card">
-    <h2>✅ Certificate Verification</h2>
-    <p><b>Name:</b> ${s.name}</p>
-    <p><b>Index:</b> ${s.indexNo}</p>
-    <p><b>Result:</b> ${s.result}</p>
-    <p><b>Project:</b> ${s.project}</p>
-    <h3 class="valid">STATUS: VALID</h3>
-  </div>
+    <div class="card">
+      <h2>✅ Certificate Verification</h2>
+      <div class="info-grid">
+        <div class="label">Serial Number:</div><div>${s.serialNumber || 'N/A'}</div>
+        <div class="label">Candidate's Name:</div><div>${s.name}</div>
+        <div class="label">Index Number:</div><div>${s.indexNo}</div>
+        <div class="label">Sex:</div><div>${s.sex || 'N/A'}</div>
+        <div class="label">Date of Birth:</div><div>${s.dob || 'N/A'}</div>
+        <div class="label">Year:</div><div>${s.year || '2025'}</div>
+        <div class="label">Result:</div><div>${s.result}</div>
+        <div class="label">Project:</div><div>${s.project}</div>
+      </div>
+      <h3 class="valid">STATUS: VALID</h3>
+    </div>
   </body>
   </html>
   `);
