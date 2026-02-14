@@ -348,16 +348,6 @@ app.post("/settings", (req, res) => {
   res.send("✅ Settings updated. <a href='/dashboard'>Back</a>");
 });
 
-// ================== HELPER: get image dimensions ==================
-async function getImageDimensions(filePath) {
-  try {
-    const imgData = fs.readFileSync(filePath);
-    return probe.sync(imgData);
-  } catch {
-    return null;
-  }
-}
-
 // ================== GENERATE TESTIMONIALS ==================
 app.post("/generate", upload.single("excel"), async (req, res) => {
   try {
@@ -370,10 +360,8 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
     const archive = archiver("zip");
     archive.pipe(output);
 
-    // Reset serial counter for each batch
     serialCounter = 1;
 
-    // Process students in batches
     const BATCH_SIZE = 20;
     const batches = [];
     for (let i = 0; i < students.length; i += BATCH_SIZE) {
@@ -390,10 +378,7 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         const sex = s["Sex"] || "";
         const dob = s["DATE OF BIRTH"] || "";
         
-        // Format gender
         const gender = sex === "M" ? "MALE" : sex === "F" ? "FEMALE" : sex;
-        
-        // Generate serial number: UNEB/RASS/GENDER/SEQUENCE/2025
         const genderCode = sex === "M" ? "M" : sex === "F" ? "F" : "X";
         const serialNumber = `UNEB/RASS/${genderCode}/${String(serialCounter).padStart(3, '0')}/2025`;
         serialCounter++;
@@ -413,36 +398,13 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
           }
         }
 
-        // Filter subjects to only those the candidate sat for
         const subjectsPresent = Object.keys(gradeMap);
         const orderedSubjects = SUBJECT_ORDER.filter(subj => subjectsPresent.includes(subj));
 
         const id = uuidv4();
+        DATABASE[id] = { name, indexNo, result, project, sex: gender, dob, year: "2025", serialNumber };
         
-        // Store complete data for QR code
-        DATABASE[id] = { 
-          name, 
-          indexNo, 
-          result, 
-          project,
-          sex: gender,
-          dob,
-          year: "2025",
-          serialNumber
-        };
-        
-        // Enhanced QR code with all verification data
-        const qrData = JSON.stringify({
-          name,
-          indexNo,
-          sex: gender,
-          dob,
-          year: "2025",
-          serialNumber,
-          result,
-          project
-        });
-        
+        const qrData = JSON.stringify({ name, indexNo, sex: gender, dob, year: "2025", serialNumber, result, project });
         const qrImage = await QRCode.toDataURL(qrData);
 
         const safeName = name.replace(/[^a-z0-9]/gi, "_").substring(0, 50);
@@ -452,12 +414,11 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         const writeStream = fs.createWriteStream(filePath);
         doc.pipe(writeStream);
 
-        // ---------- THICK TRIPLE-COLOUR BORDER ----------
+        // ---------- TRIPLE BORDER ----------
         const borderMargin = 10;
         const borderWidth = doc.page.width - 2 * borderMargin;
         const borderHeight = doc.page.height - 2 * borderMargin;
         const cornerRadius = 20;
-
         doc.roundedRect(borderMargin, borderMargin, borderWidth, borderHeight, cornerRadius)
            .lineWidth(3).strokeColor("#FF0000").stroke();
         doc.roundedRect(borderMargin + 3, borderMargin + 3, borderWidth - 6, borderHeight - 6, cornerRadius)
@@ -466,82 +427,55 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
            .lineWidth(3).strokeColor("#FFFF00").stroke();
 
         // ---------- SERIAL NUMBER (top left, red) ----------
-        doc.fontSize(8).fillColor("#FF0000")
-           .text(serialNumber, 45, 45, { align: "left" });
+        doc.fontSize(8).fillColor("#FF0000").text(serialNumber, 45, 45, { align: "left" });
 
-        // ---------- LOGOS (bottom aligned with title) ----------
-        const titleY = 170; // Y coordinate of "UCE TESTIMONIAL 2025" baseline
-        const logoWidth = 70;
+        // ---------- LOGOS (fixed height 70px, bottom-aligned with title) ----------
+        const titleY = 170; // baseline of "UCE TESTIMONIAL 2025"
+        const logoHeight = 70;
 
         if (LOGO1 && fs.existsSync(LOGO1)) {
-          const dim1 = await getImageDimensions(LOGO1);
-          if (dim1) {
-            const logoHeight = (dim1.height / dim1.width) * logoWidth;
-            // Position so that bottom of logo aligns with title baseline
-            doc.image(LOGO1, 45, titleY - logoHeight, { width: logoWidth });
-          } else {
-            doc.image(LOGO1, 45, titleY - 50, { width: logoWidth }); // fallback
-          }
+          doc.image(LOGO1, 45, titleY - logoHeight, { height: logoHeight });
         }
         if (LOGO2 && fs.existsSync(LOGO2)) {
-          const dim2 = await getImageDimensions(LOGO2);
-          if (dim2) {
-            const logoHeight = (dim2.height / dim2.width) * logoWidth;
-            doc.image(LOGO2, doc.page.width - 115, titleY - logoHeight, { width: logoWidth });
-          } else {
-            doc.image(LOGO2, doc.page.width - 115, titleY - 50, { width: logoWidth });
-          }
+          doc.image(LOGO2, doc.page.width - 115, titleY - logoHeight, { height: logoHeight });
         }
 
-        // School header (positioned above title)
-        doc.fontSize(16).fillColor("#003366")
-           .text(SETTINGS.schoolName, 0, 90, { align: "center" });
-        doc.fontSize(9).fillColor("#2d3748")
-           .text(SETTINGS.address, { align: "center" });
-        doc.fontSize(9).fillColor("#4a5568")
-           .text(`VISION: ${SETTINGS.vision}`, { align: "center" });
+        // School header
+        doc.fontSize(16).fillColor("#003366").text(SETTINGS.schoolName, 0, 90, { align: "center" });
+        doc.fontSize(9).fillColor("#2d3748").text(SETTINGS.address, { align: "center" });
+        doc.fontSize(9).fillColor("#4a5568").text(`VISION: ${SETTINGS.vision}`, { align: "center" });
         doc.fontSize(9).text(`MISSION: ${SETTINGS.mission}`, { align: "center" });
 
-        // Title (UCE TESTIMONIAL 2025)
-        doc.fontSize(14).fillColor("#003366")
-           .text("UCE TESTIMONIAL 2025.", 0, titleY, { align: "center", underline: true });
+        // Title
+        doc.fontSize(14).fillColor("#003366").text("UCE TESTIMONIAL 2025.", 0, titleY, { align: "center", underline: true });
 
-        // ---------- CANDIDATE DETAILS IN A BORDERED BOX ----------
+        // ---------- CANDIDATE DETAILS BOX ----------
         const boxTop = 210;
         const boxLeft = 45;
         const boxWidth = 520;
         const boxPadding = 10;
-        let boxY = boxTop;
 
-        // Draw light border around candidate details
-        doc.roundedRect(boxLeft, boxTop, boxWidth, 100, 5) // height increased to accommodate LIN
-           .lineWidth(1).strokeColor("#CCCCCC").stroke();
+        doc.roundedRect(boxLeft, boxTop, boxWidth, 100, 5).lineWidth(1).strokeColor("#CCCCCC").stroke();
 
-        // Candidate details inside box
         doc.fontSize(11).fillColor("black");
         doc.text(`CANDIDATE'S NAME: ${name}`, boxLeft + boxPadding, boxTop + boxPadding);
         doc.text(`INDEX NO: ${indexNo}`, boxLeft + 300, boxTop + boxPadding);
-        
         doc.text(`SEX: ${gender}`, boxLeft + boxPadding, boxTop + boxPadding + 20);
         doc.text(`DoB: ${dob}`, boxLeft + 200, boxTop + boxPadding + 20);
-
-        // LIN line
         doc.text("LIN............................................", boxLeft + boxPadding, boxTop + boxPadding + 40);
 
-        // Table (starts after box)
-        const tableTop = boxTop + 120; // 100 height box + 20 gap
+        // ---------- TABLE ----------
+        const tableTop = boxTop + 120;
         const col1 = 50, col2 = 120, col3 = 320, col4 = 550;
         const rowHeight = 22;
         const rowCount = orderedSubjects.length + 1;
 
-        // Table header
         doc.fontSize(10).font("Helvetica-Bold");
         doc.text("S/NO", col1 + 5, tableTop + 5);
         doc.text("SUBJECT", col2 + 5, tableTop + 5);
         doc.text("Subject Achievement", col3 + 5, tableTop + 5);
         doc.font("Helvetica");
 
-        // Data rows
         let y = tableTop + rowHeight;
         let sno = 1;
         for (const subject of orderedSubjects) {
@@ -553,36 +487,35 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
           sno++;
         }
 
-        // Draw table grid
         doc.lineWidth(1).strokeColor("#000");
         doc.moveTo(col1, tableTop).lineTo(col1, tableTop + rowCount * rowHeight).stroke();
         doc.moveTo(col2, tableTop).lineTo(col2, tableTop + rowCount * rowHeight).stroke();
         doc.moveTo(col3, tableTop).lineTo(col3, tableTop + rowCount * rowHeight).stroke();
         doc.moveTo(col4, tableTop).lineTo(col4, tableTop + rowCount * rowHeight).stroke();
-        
         for (let i = 0; i <= rowCount; i++) {
           const lineY = tableTop + i * rowHeight;
           doc.moveTo(col1, lineY).lineTo(col4, lineY).stroke();
         }
 
-        // Result & Project
+        // ---------- RESULT & PROJECT ----------
         const afterTableY = tableTop + rowCount * rowHeight + 20;
         doc.fontSize(11).font("Helvetica-Bold");
         doc.text(`RESULT: ${result}`, 50, afterTableY);
         doc.text(`PROJECT: ${project}`, 300, afterTableY);
 
-        // Extra space before motto
+        // ---------- MOTTO ----------
         const mottoY = afterTableY + 35;
         doc.fontSize(10).font("Helvetica").text(SETTINGS.footer, 50, mottoY, { align: "center" });
 
-        // Signature block (right-aligned, at x=400)
+        // ---------- SIGNATURE BLOCK (left-aligned, first letters line up) ----------
         const sigY = mottoY + 45;
+        const sigX = 350; // left edge for all lines
         doc.fontSize(12).fillColor("black");
-        doc.text(SETTINGS.headTeacher, 400, sigY, { align: "right", width: 150 });
-        doc.text(SETTINGS.headTeacherRank, 400, sigY + 18, { align: "right", width: 150 });
-        doc.text(SETTINGS.headTeacherTitle, 400, sigY + 36, { align: "right", width: 150 });
+        doc.text(SETTINGS.headTeacher, sigX, sigY, { align: "left" });
+        doc.text(SETTINGS.headTeacherRank, sigX, sigY + 18, { align: "left" });
+        doc.text(SETTINGS.headTeacherTitle, sigX, sigY + 36, { align: "left" });
 
-        // QR Code (bottom left, dynamically placed)
+        // ---------- QR CODE ----------
         const qrY = sigY + 70;
         doc.image(qrImage, 45, qrY, { width: 70 });
 
@@ -605,7 +538,6 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
 app.get("/verify/:id", (req, res) => {
   const s = DATABASE[req.params.id];
   if (!s) return res.send("<h2>Invalid Certificate</h2>");
-  
   res.send(`
   <!DOCTYPE html>
   <html>
