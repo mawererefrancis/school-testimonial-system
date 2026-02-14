@@ -507,10 +507,12 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         const mottoY = afterTableY + 35;
         doc.fontSize(10).font("Helvetica").text(SETTINGS.footer, 50, mottoY, { align: "center" });
 
-        // ---------- SIGNATURE BLOCK (left-aligned, first letters line up) ----------
-        const sigY = mottoY + 45;
-        const sigX = 350; // left edge for all lines
+        // ---------- SIGNATURE BLOCK (with dotted line) ----------
+        const sigY = mottoY + 60;          // increased space
+        const sigX = 350;                  // left edge for all lines
         doc.fontSize(12).fillColor("black");
+        // Dotted line for signature
+        doc.text("....................................", sigX, sigY - 10, { align: "left" });
         doc.text(SETTINGS.headTeacher, sigX, sigY, { align: "left" });
         doc.text(SETTINGS.headTeacherRank, sigX, sigY + 18, { align: "left" });
         doc.text(SETTINGS.headTeacherTitle, sigX, sigY + 36, { align: "left" });
