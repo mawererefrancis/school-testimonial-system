@@ -448,7 +448,7 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         const safeName = name.replace(/[^a-z0-9]/gi, "_").substring(0, 50);
         const filePath = `generated/${safeName}.pdf`;
 
-        const doc = new PDFDocument({ size: "A4", margin: 40 }); // Reduced margin
+        const doc = new PDFDocument({ size: "A4", margin: 40 });
         const writeStream = fs.createWriteStream(filePath);
         doc.pipe(writeStream);
 
@@ -458,7 +458,6 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         const borderHeight = doc.page.height - 2 * borderMargin;
         const cornerRadius = 20;
 
-        // Thicker borders - 3pt each
         doc.roundedRect(borderMargin, borderMargin, borderWidth, borderHeight, cornerRadius)
            .lineWidth(3).strokeColor("#FF0000").stroke();
         doc.roundedRect(borderMargin + 3, borderMargin + 3, borderWidth - 6, borderHeight - 6, cornerRadius)
@@ -466,32 +465,36 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         doc.roundedRect(borderMargin + 6, borderMargin + 6, borderWidth - 12, borderHeight - 12, cornerRadius)
            .lineWidth(3).strokeColor("#FFFF00").stroke();
 
-        // ---------- LOGOS (positioned higher) ----------
-        const titleY = 70; // Reduced from 140
+        // ---------- SERIAL NUMBER (top left, red) ----------
+        doc.fontSize(8).fillColor("#FF0000")
+           .text(serialNumber, 45, 45, { align: "left" });
+
+        // ---------- LOGOS (positioned at Y=90, centered with school name) ----------
+        const logoY = 90;
         const logoWidth = 70;
 
         if (LOGO1 && fs.existsSync(LOGO1)) {
           const dim1 = await getImageDimensions(LOGO1);
           if (dim1) {
             const logoHeight = (dim1.height / dim1.width) * logoWidth;
-            doc.image(LOGO1, 40, titleY - logoHeight/2, { width: logoWidth });
+            doc.image(LOGO1, 45, logoY - logoHeight/2, { width: logoWidth });
           } else {
-            doc.image(LOGO1, 40, titleY - 25, { width: logoWidth });
+            doc.image(LOGO1, 45, logoY - 25, { width: logoWidth });
           }
         }
         if (LOGO2 && fs.existsSync(LOGO2)) {
           const dim2 = await getImageDimensions(LOGO2);
           if (dim2) {
             const logoHeight = (dim2.height / dim2.width) * logoWidth;
-            doc.image(LOGO2, doc.page.width - 110, titleY - logoHeight/2, { width: logoWidth });
+            doc.image(LOGO2, doc.page.width - 115, logoY - logoHeight/2, { width: logoWidth });
           } else {
-            doc.image(LOGO2, doc.page.width - 110, titleY - 25, { width: logoWidth });
+            doc.image(LOGO2, doc.page.width - 115, logoY - 25, { width: logoWidth });
           }
         }
 
-        // School header
+        // School header (at same Y as logos)
         doc.fontSize(16).fillColor("#003366")
-           .text(SETTINGS.schoolName, 0, titleY, { align: "center" });
+           .text(SETTINGS.schoolName, 0, logoY, { align: "center" });
         doc.fontSize(9).fillColor("#2d3748")
            .text(SETTINGS.address, { align: "center" });
         doc.fontSize(9).fillColor("#4a5568")
@@ -500,29 +503,38 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
 
         // Date on right
         const today = new Date().toLocaleDateString("en-GB");
-        doc.fontSize(10).fillColor("black").text(today, 450, 130, { align: "right" });
+        doc.fontSize(10).fillColor("black").text(today, 450, 140, { align: "right" });
 
-        // Title
+        // Title (with extra space after)
         doc.fontSize(14).fillColor("#003366")
-           .text("UCE TESTIMONIAL 2025.", 0, 150, { align: "center", underline: true });
+           .text("UCE TESTIMONIAL 2025.", 0, 170, { align: "center", underline: true });
 
-        // Candidate details - removed dotted lines, added gender and DOB
-        doc.fontSize(11);
-        doc.text(`CANDIDATE'S NAME: ${name}`, 50, 180);
-        doc.text(`INDEX NO: ${indexNo}`, 350, 180);
-        
-        // Add serial number
-        doc.fontSize(9).fillColor("#666").text(`Serial: ${serialNumber}`, 50, 195);
-        
-        // Gender and DOB
+        // ---------- CANDIDATE DETAILS IN A BORDERED BOX ----------
+        const boxTop = 210;
+        const boxLeft = 45;
+        const boxWidth = 520;
+        const boxPadding = 10;
+        let boxY = boxTop;
+
+        // Draw light border around candidate details
+        doc.roundedRect(boxLeft, boxTop, boxWidth, 80, 5)
+           .lineWidth(1).strokeColor("#CCCCCC").stroke();
+
+        // Candidate details inside box
         doc.fontSize(11).fillColor("black");
-        doc.text(`SEX: ${gender}`, 50, 215);
-        doc.text(`DATE OF BIRTH: ${dob}`, 250, 215);
+        doc.text(`CANDIDATE'S NAME: ${name}`, boxLeft + boxPadding, boxTop + boxPadding);
+        doc.text(`INDEX NO: ${indexNo}`, boxLeft + 300, boxTop + boxPadding);
+        
+        doc.text(`SEX: ${gender}`, boxLeft + boxPadding, boxTop + boxPadding + 20);
+        doc.text(`DATE OF BIRTH: ${dob}`, boxLeft + 200, boxTop + boxPadding + 20);
 
-        // Table
-        const tableTop = 250;
+        // Serial repeated inside box (optional) – but we already have it top left.
+        // We'll keep it only top left.
+
+        // Table (starts after box)
+        const tableTop = boxTop + 100; // 80 height box + 20 gap
         const col1 = 50, col2 = 120, col3 = 320, col4 = 550;
-        const rowHeight = 22; // Slightly taller rows
+        const rowHeight = 22;
         const rowCount = orderedSubjects.length + 1;
 
         // Table header
@@ -544,7 +556,7 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
           sno++;
         }
 
-        // Draw table grid with thicker lines
+        // Draw table grid (thicker lines)
         doc.lineWidth(1).strokeColor("#000");
         doc.moveTo(col1, tableTop).lineTo(col1, tableTop + rowCount * rowHeight).stroke();
         doc.moveTo(col2, tableTop).lineTo(col2, tableTop + rowCount * rowHeight).stroke();
@@ -562,24 +574,20 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         doc.text(`RESULT: ${result}`, 50, afterTableY);
         doc.text(`PROJECT: ${project}`, 300, afterTableY);
 
-        // Footer motto
-        const mottoY = afterTableY + 25;
+        // Extra space before motto
+        const mottoY = afterTableY + 35;
         doc.fontSize(10).font("Helvetica").text(SETTINGS.footer, 50, mottoY, { align: "center" });
 
-        // Signature block - exactly like Word document
-        const sigY = mottoY + 35;
-        doc.fontSize(10);
-        
-        // Dotted line
-        doc.text("....................................", 350, sigY - 5, { align: "right" });
-        
-        // Name, Rank, Title on separate lines as in Word document
-        doc.text(SETTINGS.headTeacher, 350, sigY + 10, { align: "right" });
-        doc.text(SETTINGS.headTeacherRank, 350, sigY + 25, { align: "right" });
-        doc.text(SETTINGS.headTeacherTitle, 350, sigY + 40, { align: "right" });
+        // Signature block (left-aligned, larger font)
+        const sigY = mottoY + 45;
+        doc.fontSize(12).fillColor("black");
+        doc.text(SETTINGS.headTeacher, 50, sigY, { align: "left" });
+        doc.text(SETTINGS.headTeacherRank, 50, sigY + 18, { align: "left" });
+        doc.text(SETTINGS.headTeacherTitle, 50, sigY + 36, { align: "left" });
 
-        // QR Code (bottom left)
-        doc.image(qrImage, 40, 700, { width: 70 });
+        // QR Code (bottom left, dynamically placed)
+        const qrY = sigY + 70;
+        doc.image(qrImage, 45, qrY, { width: 70 });
 
         doc.end();
 
