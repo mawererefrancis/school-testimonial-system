@@ -7,6 +7,8 @@ import QRCode from "qrcode";
 import bcrypt from "bcrypt";
 import { v4 as uuidv4 } from "uuid";
 import fs from "fs";
+import path from "path";
+import probe from "probe-image-size"; // npm install probe-image-size
 
 const app = express();
 app.use(express.urlencoded({ extended: true }));
@@ -57,27 +59,6 @@ const SUBJECT_MAP = {
   KIS: "KISWAHILI",
   LAN: "LANGO",
 };
-
-const SUBJECT_ORDER = [
-  "ENGLISH",
-  "HISTORY",
-  "GEOGRAPHY",
-  "MATHEMATICS",
-  "PHYSICS",
-  "CHEMISTRY",
-  "BIOLOGY",
-  "IPS",
-  "CRE",
-  "COMMERCE",
-  "IRE",
-  "AGRICULTURE",
-  "ICT",
-  "DHOPADOLA",
-  "LITERATURE IN ENGLISH",
-  "ENTREPRENEURSHIP EDUCATION",
-  "KISWAHILI",
-  "LANGO",
-];
 
 // ================== LOGIN PAGE ==================
 app.get("/", (req, res) => {
@@ -186,10 +167,14 @@ function DASHBOARD_HTML() {
         font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
         background: #f7fafc;
         padding: 30px 20px;
+        min-height: 100vh;
+        display: flex;
+        flex-direction: column;
       }
       .container {
         max-width: 900px;
         margin: 0 auto;
+        flex: 1;
       }
       h1 {
         color: #2d3748;
@@ -254,6 +239,20 @@ function DASHBOARD_HTML() {
         text-decoration: none;
         font-weight: 500;
       }
+      .footer {
+        text-align: center;
+        margin-top: 40px;
+        padding: 20px;
+        background: white;
+        border-radius: 16px;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+        border: 1px solid #edf2f7;
+        color: #4a5568;
+        font-size: 0.95rem;
+      }
+      .footer p {
+        margin: 5px 0;
+      }
       hr {
         border: none;
         border-top: 2px dashed #e2e8f0;
@@ -297,6 +296,12 @@ function DASHBOARD_HTML() {
           <button>Generate ZIP with PDFs</button>
         </form>
       </div>
+
+      <div class="footer">
+        <p><strong>Mawerere Francis</strong></p>
+        <p>📞 Tel: 0788223215 | ✉️ Email: mawererefrancis@gmail.com</p>
+        <p>💬 WhatsApp: +256788223215</p>
+      </div>
     </div>
   </body>
   </html>
@@ -318,7 +323,17 @@ app.post("/settings", (req, res) => {
   res.send("✅ Settings updated. <a href='/dashboard'>Back</a>");
 });
 
-// ================== GENERATE TESTIMONIALS ==================
+// ================== HELPER: get image dimensions ==================
+async function getImageDimensions(filePath) {
+  try {
+    const imgData = fs.readFileSync(filePath);
+    return probe.sync(imgData);
+  } catch {
+    return null;
+  }
+}
+
+// ================== GENERATE TESTIMONIALS (optimised) ==================
 app.post("/generate", upload.single("excel"), async (req, res) => {
   try {
     const workbook = XLSX.readFile(req.file.path);
@@ -330,153 +345,178 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
     const archive = archiver("zip");
     archive.pipe(output);
 
-    for (const s of students) {
-      const name = s["Candidate_Name"] || s["Candidate Name"] || "";
-      const indexNo = s["IndexNo"] || s["INDEX NO"] || "";
-      const result = s["Result"] || "";
-      const project = s["PROJECT WORK"] || "";
-      const achievements = s["SUBJECT ACHIEVEMENTS"] || "";
+    // Process students in batches to avoid too many concurrent writes
+    const BATCH_SIZE = 20;
+    const batches = [];
+    for (let i = 0; i < students.length; i += BATCH_SIZE) {
+      batches.push(students.slice(i, i + BATCH_SIZE));
+    }
 
-      // Parse grades
-      const gradeMap = {};
-      if (achievements) {
-        const parts = achievements.split(" ");
-        for (const part of parts) {
-          const match = part.match(/^([A-Z]+)-([A-D])$/);
-          if (match) {
-            const code = match[1];
-            const grade = match[2];
-            const fullName = SUBJECT_MAP[code];
-            if (fullName) gradeMap[fullName] = grade;
+    for (const batch of batches) {
+      await Promise.all(batch.map(async (s) => {
+        const name = s["Candidate_Name"] || s["Candidate Name"] || "";
+        const indexNo = s["IndexNo"] || s["INDEX NO"] || "";
+        const result = s["Result"] || "";
+        const project = s["PROJECT WORK"] || "";
+        const achievements = s["SUBJECT ACHIEVEMENTS"] || "";
+
+        // Parse grades
+        const gradeMap = {};
+        if (achievements) {
+          const parts = achievements.split(" ");
+          for (const part of parts) {
+            const match = part.match(/^([A-Z]+)-([A-D])$/);
+            if (match) {
+              const code = match[1];
+              const grade = match[2];
+              const fullName = SUBJECT_MAP[code];
+              if (fullName) gradeMap[fullName] = grade;
+            }
           }
         }
-      }
 
-      const id = uuidv4();
-      DATABASE[id] = { name, indexNo, result, project };
-      const verifyURL = `${req.protocol}://${req.get('host')}/verify/${id}`;
-      const qrImage = await QRCode.toDataURL(verifyURL);
+        // Filter subjects to only those the candidate sat for
+        const subjectsPresent = Object.keys(gradeMap);
+        // But we need to preserve the order from the official list
+        const orderedSubjects = SUBJECT_ORDER.filter(subj => subjectsPresent.includes(subj));
 
-      const safeName = name.replace(/[^a-z0-9]/gi, "_").substring(0, 50);
-      const filePath = `generated/${safeName}.pdf`;
+        const id = uuidv4();
+        DATABASE[id] = { name, indexNo, result, project };
+        const verifyURL = `${req.protocol}://${req.get('host')}/verify/${id}`;
+        const qrImage = await QRCode.toDataURL(verifyURL);
 
-      const doc = new PDFDocument({ size: "A4", margin: 50 });
-      const writeStream = fs.createWriteStream(filePath);
-      doc.pipe(writeStream);
+        const safeName = name.replace(/[^a-z0-9]/gi, "_").substring(0, 50);
+        const filePath = `generated/${safeName}.pdf`;
 
-      // ---------- TRIPLE-COLOUR BORDER (Red, Black, Yellow) ----------
-      const borderMargin = 15; // from page edge
-      const borderWidth = doc.page.width - 2 * borderMargin;
-      const borderHeight = doc.page.height - 2 * borderMargin;
-      const cornerRadius = 20;
+        const doc = new PDFDocument({ size: "A4", margin: 50 });
+        const writeStream = fs.createWriteStream(filePath);
+        doc.pipe(writeStream);
 
-      // Draw three overlapping rectangles with different colors
-      // Outermost: Red
-      doc.roundedRect(borderMargin, borderMargin, borderWidth, borderHeight, cornerRadius)
-         .lineWidth(2).strokeColor("#FF0000").stroke();
-      // Middle: Black (offset inward by 1pt)
-      doc.roundedRect(borderMargin + 1, borderMargin + 1, borderWidth - 2, borderHeight - 2, cornerRadius)
-         .lineWidth(2).strokeColor("#000000").stroke();
-      // Innermost: Yellow (offset inward by another 1pt)
-      doc.roundedRect(borderMargin + 2, borderMargin + 2, borderWidth - 4, borderHeight - 4, cornerRadius)
-         .lineWidth(2).strokeColor("#FFFF00").stroke();
+        // ---------- TRIPLE-COLOUR BORDER ----------
+        const borderMargin = 15;
+        const borderWidth = doc.page.width - 2 * borderMargin;
+        const borderHeight = doc.page.height - 2 * borderMargin;
+        const cornerRadius = 20;
 
-      // ---------- CONTENT (starts at regular margins) ----------
-      // Logos
-      if (LOGO1 && fs.existsSync(LOGO1)) {
-        doc.image(LOGO1, 50, 50, { width: 70 });
-      }
-      if (LOGO2 && fs.existsSync(LOGO2)) {
-        doc.image(LOGO2, doc.page.width - 120, 50, { width: 70 });
-      }
+        doc.roundedRect(borderMargin, borderMargin, borderWidth, borderHeight, cornerRadius)
+           .lineWidth(2).strokeColor("#FF0000").stroke();
+        doc.roundedRect(borderMargin + 1, borderMargin + 1, borderWidth - 2, borderHeight - 2, cornerRadius)
+           .lineWidth(2).strokeColor("#000000").stroke();
+        doc.roundedRect(borderMargin + 2, borderMargin + 2, borderWidth - 4, borderHeight - 4, cornerRadius)
+           .lineWidth(2).strokeColor("#FFFF00").stroke();
 
-      // School header
-      doc.fontSize(16).fillColor("#003366")
-         .text(SETTINGS.schoolName, 50, 130, { align: "center" });
-      doc.fontSize(9).fillColor("#2d3748")
-         .text(SETTINGS.address, { align: "center" });
-      doc.fontSize(9).fillColor("#4a5568")
-         .text(`VISION: ${SETTINGS.vision}`, { align: "center" });
-      doc.fontSize(9).text(`MISSION: ${SETTINGS.mission}`, { align: "center" });
+        // ---------- LOGOS (aligned with school name) ----------
+        const titleY = 140;
+        const logoWidth = 70;
 
-      // Date
-      doc.fontSize(10).fillColor("black").text("........./02/2026", 50, 200);
+        if (LOGO1 && fs.existsSync(LOGO1)) {
+          const dim1 = await getImageDimensions(LOGO1);
+          if (dim1) {
+            const logoHeight = (dim1.height / dim1.width) * logoWidth;
+            doc.image(LOGO1, 50, titleY - logoHeight/2 + 8, { width: logoWidth });
+          } else {
+            doc.image(LOGO1, 50, titleY - 25, { width: logoWidth }); // fallback
+          }
+        }
+        if (LOGO2 && fs.existsSync(LOGO2)) {
+          const dim2 = await getImageDimensions(LOGO2);
+          if (dim2) {
+            const logoHeight = (dim2.height / dim2.width) * logoWidth;
+            doc.image(LOGO2, doc.page.width - 120, titleY - logoHeight/2 + 8, { width: logoWidth });
+          } else {
+            doc.image(LOGO2, doc.page.width - 120, titleY - 25, { width: logoWidth });
+          }
+        }
 
-      // Title
-      doc.fontSize(14).fillColor("#003366")
-         .text("UCE TESTIMONIAL 2025.", 50, 220, { align: "center", underline: true });
+        // School header
+        doc.fontSize(16).fillColor("#003366")
+           .text(SETTINGS.schoolName, 50, titleY, { align: "center" });
+        doc.fontSize(9).fillColor("#2d3748")
+           .text(SETTINGS.address, { align: "center" });
+        doc.fontSize(9).fillColor("#4a5568")
+           .text(`VISION: ${SETTINGS.vision}`, { align: "center" });
+        doc.fontSize(9).text(`MISSION: ${SETTINGS.mission}`, { align: "center" });
 
-      // Name, Index, LIN lines
-      doc.fontSize(11);
-      doc.text(`NAME: ${name}`, 50, 250);
-      // Dotted line for INDEX NO
-      doc.text('.'.repeat(30), 200, 250, { width: 150 });
-      doc.text(`INDEX NO: ${indexNo}`, 350, 250);
-      doc.text("LIN..........................................................", 50, 270);
+        // Date (current) on right
+        const today = new Date().toLocaleDateString("en-GB"); // dd/mm/yyyy
+        doc.fontSize(10).fillColor("black").text(today, 450, 200, { align: "right" });
 
-      // Table coordinates
-      const tableTop = 310;
-      const col1 = 50, col2 = 120, col3 = 320, col4 = 550;
-      const rowHeight = 20;
-      const rowCount = 19; // header + 18 data rows
+        // Title
+        doc.fontSize(14).fillColor("#003366")
+           .text("UCE TESTIMONIAL 2025.", 50, 220, { align: "center", underline: true });
 
-      // Write table content
-      doc.fontSize(10).font("Helvetica-Bold");
-      doc.text("S/NO", col1 + 5, tableTop + 5);
-      doc.text("SUBJECT", col2 + 5, tableTop + 5);
-      doc.text("Subject Achievement", col3 + 5, tableTop + 5);
-      doc.font("Helvetica");
+        // Name, Index, LIN lines
+        doc.fontSize(11);
+        doc.text(`NAME: ${name}`, 50, 250);
+        doc.text('.'.repeat(30), 200, 250, { width: 150 });
+        doc.text(`INDEX NO: ${indexNo}`, 350, 250);
+        doc.text("LIN..........................................................", 50, 270);
 
-      let y = tableTop + rowHeight;
-      let sno = 1;
-      for (const subject of SUBJECT_ORDER) {
-        const grade = gradeMap[subject] || "";
-        doc.text(`${sno}.`, col1 + 5, y + 5);
-        doc.text(subject, col2 + 5, y + 5);
-        doc.text(grade, col3 + 5, y + 5);
-        y += rowHeight;
-        sno++;
-      }
+        // Table: only subjects present
+        const tableTop = 310;
+        const col1 = 50, col2 = 120, col3 = 320, col4 = 550;
+        const rowHeight = 20;
+        const rowCount = orderedSubjects.length + 1; // header + data rows
 
-      // Draw table grid
-      doc.lineWidth(0.5).strokeColor("#000");
-      // Vertical lines
-      doc.moveTo(col1, tableTop).lineTo(col1, tableTop + rowCount * rowHeight).stroke();
-      doc.moveTo(col2, tableTop).lineTo(col2, tableTop + rowCount * rowHeight).stroke();
-      doc.moveTo(col3, tableTop).lineTo(col3, tableTop + rowCount * rowHeight).stroke();
-      doc.moveTo(col4, tableTop).lineTo(col4, tableTop + rowCount * rowHeight).stroke();
-      // Horizontal lines
-      for (let i = 0; i <= rowCount; i++) {
-        const lineY = tableTop + i * rowHeight;
-        doc.moveTo(col1, lineY).lineTo(col4, lineY).stroke();
-      }
+        // Table header
+        doc.fontSize(10).font("Helvetica-Bold");
+        doc.text("S/NO", col1 + 5, tableTop + 5);
+        doc.text("SUBJECT", col2 + 5, tableTop + 5);
+        doc.text("Subject Achievement", col3 + 5, tableTop + 5);
+        doc.font("Helvetica");
 
-      // Result & Project
-      const afterTableY = tableTop + rowCount * rowHeight + 20;
-      doc.fontSize(11).font("Helvetica-Bold");
-      doc.text(`RESULT: ${result}`, 50, afterTableY);
-      doc.text(`PROJECT: ${project}`, 300, afterTableY);
+        // Data rows
+        let y = tableTop + rowHeight;
+        let sno = 1;
+        for (const subject of orderedSubjects) {
+          const grade = gradeMap[subject] || "";
+          doc.text(`${sno}.`, col1 + 5, y + 5);
+          doc.text(subject, col2 + 5, y + 5);
+          doc.text(grade, col3 + 5, y + 5);
+          y += rowHeight;
+          sno++;
+        }
 
-      // Footer motto
-      const mottoY = afterTableY + 30;
-      doc.fontSize(10).font("Helvetica").text(SETTINGS.footer, 50, mottoY, { align: "center" });
+        // Draw table grid
+        doc.lineWidth(0.5).strokeColor("#000");
+        // Vertical lines
+        doc.moveTo(col1, tableTop).lineTo(col1, tableTop + rowCount * rowHeight).stroke();
+        doc.moveTo(col2, tableTop).lineTo(col2, tableTop + rowCount * rowHeight).stroke();
+        doc.moveTo(col3, tableTop).lineTo(col3, tableTop + rowCount * rowHeight).stroke();
+        doc.moveTo(col4, tableTop).lineTo(col4, tableTop + rowCount * rowHeight).stroke();
+        // Horizontal lines
+        for (let i = 0; i <= rowCount; i++) {
+          const lineY = tableTop + i * rowHeight;
+          doc.moveTo(col1, lineY).lineTo(col4, lineY).stroke();
+        }
 
-      // Signature block (exactly as in Word doc)
-      const sigY = mottoY + 30;
-      doc.fontSize(10);
-      // Dotted line
-      doc.text("....................................", 350, sigY - 10, { align: "right" });
-      doc.text("ZAINA .K. NALUKENGE", 350, sigY + 5, { align: "right" });
-      doc.text("Maj.", 350, sigY + 20, { align: "right" });
-      doc.text("HEAD TEACHER", 350, sigY + 35, { align: "right" });
+        // Result & Project
+        const afterTableY = tableTop + rowCount * rowHeight + 20;
+        doc.fontSize(11).font("Helvetica-Bold");
+        doc.text(`RESULT: ${result}`, 50, afterTableY);
+        doc.text(`PROJECT: ${project}`, 300, afterTableY);
 
-      // QR Code (bottom left)
-      doc.image(qrImage, 50, 700, { width: 60 });
+        // Footer motto
+        const mottoY = afterTableY + 30;
+        doc.fontSize(10).font("Helvetica").text(SETTINGS.footer, 50, mottoY, { align: "center" });
 
-      doc.end();
+        // Signature block (dotted line + name/rank/title on one line)
+        const sigY = mottoY + 30;
+        doc.fontSize(10);
+        // Dotted line
+        doc.text("....................................", 350, sigY - 10, { align: "right" });
+        // Name, rank, title on one line
+        doc.text(`Name: ZAINA K. NALUKENGE  Rank: Maj  Title: Head Teacher`, 350, sigY + 5, { align: "right" });
 
-      await new Promise(resolve => writeStream.on("finish", resolve));
-      archive.file(filePath, { name: `${safeName}.pdf` });
+        // QR Code (bottom left)
+        doc.image(qrImage, 50, 700, { width: 60 });
+
+        doc.end();
+
+        // Wait for PDF to finish writing
+        await new Promise(resolve => writeStream.on("finish", resolve));
+        archive.file(filePath, { name: `${safeName}.pdf` });
+      }));
     }
 
     await archive.finalize();
