@@ -469,45 +469,42 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         doc.fontSize(8).fillColor("#FF0000")
            .text(serialNumber, 45, 45, { align: "left" });
 
-        // ---------- LOGOS (positioned at Y=90, centered with school name) ----------
-        const logoY = 90;
+        // ---------- LOGOS (bottom aligned with title) ----------
+        const titleY = 170; // Y coordinate of "UCE TESTIMONIAL 2025" baseline
         const logoWidth = 70;
 
         if (LOGO1 && fs.existsSync(LOGO1)) {
           const dim1 = await getImageDimensions(LOGO1);
           if (dim1) {
             const logoHeight = (dim1.height / dim1.width) * logoWidth;
-            doc.image(LOGO1, 45, logoY - logoHeight/2, { width: logoWidth });
+            // Position so that bottom of logo aligns with title baseline
+            doc.image(LOGO1, 45, titleY - logoHeight, { width: logoWidth });
           } else {
-            doc.image(LOGO1, 45, logoY - 25, { width: logoWidth });
+            doc.image(LOGO1, 45, titleY - 50, { width: logoWidth }); // fallback
           }
         }
         if (LOGO2 && fs.existsSync(LOGO2)) {
           const dim2 = await getImageDimensions(LOGO2);
           if (dim2) {
             const logoHeight = (dim2.height / dim2.width) * logoWidth;
-            doc.image(LOGO2, doc.page.width - 115, logoY - logoHeight/2, { width: logoWidth });
+            doc.image(LOGO2, doc.page.width - 115, titleY - logoHeight, { width: logoWidth });
           } else {
-            doc.image(LOGO2, doc.page.width - 115, logoY - 25, { width: logoWidth });
+            doc.image(LOGO2, doc.page.width - 115, titleY - 50, { width: logoWidth });
           }
         }
 
-        // School header (at same Y as logos)
+        // School header (positioned above title)
         doc.fontSize(16).fillColor("#003366")
-           .text(SETTINGS.schoolName, 0, logoY, { align: "center" });
+           .text(SETTINGS.schoolName, 0, 90, { align: "center" });
         doc.fontSize(9).fillColor("#2d3748")
            .text(SETTINGS.address, { align: "center" });
         doc.fontSize(9).fillColor("#4a5568")
            .text(`VISION: ${SETTINGS.vision}`, { align: "center" });
         doc.fontSize(9).text(`MISSION: ${SETTINGS.mission}`, { align: "center" });
 
-        // Date on right
-        const today = new Date().toLocaleDateString("en-GB");
-        doc.fontSize(10).fillColor("black").text(today, 450, 140, { align: "right" });
-
-        // Title (with extra space after)
+        // Title (UCE TESTIMONIAL 2025)
         doc.fontSize(14).fillColor("#003366")
-           .text("UCE TESTIMONIAL 2025.", 0, 170, { align: "center", underline: true });
+           .text("UCE TESTIMONIAL 2025.", 0, titleY, { align: "center", underline: true });
 
         // ---------- CANDIDATE DETAILS IN A BORDERED BOX ----------
         const boxTop = 210;
@@ -517,7 +514,7 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         let boxY = boxTop;
 
         // Draw light border around candidate details
-        doc.roundedRect(boxLeft, boxTop, boxWidth, 80, 5)
+        doc.roundedRect(boxLeft, boxTop, boxWidth, 100, 5) // height increased to accommodate LIN
            .lineWidth(1).strokeColor("#CCCCCC").stroke();
 
         // Candidate details inside box
@@ -526,13 +523,13 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         doc.text(`INDEX NO: ${indexNo}`, boxLeft + 300, boxTop + boxPadding);
         
         doc.text(`SEX: ${gender}`, boxLeft + boxPadding, boxTop + boxPadding + 20);
-        doc.text(`DATE OF BIRTH: ${dob}`, boxLeft + 200, boxTop + boxPadding + 20);
+        doc.text(`DoB: ${dob}`, boxLeft + 200, boxTop + boxPadding + 20);
 
-        // Serial repeated inside box (optional) – but we already have it top left.
-        // We'll keep it only top left.
+        // LIN line
+        doc.text("LIN............................................", boxLeft + boxPadding, boxTop + boxPadding + 40);
 
         // Table (starts after box)
-        const tableTop = boxTop + 100; // 80 height box + 20 gap
+        const tableTop = boxTop + 120; // 100 height box + 20 gap
         const col1 = 50, col2 = 120, col3 = 320, col4 = 550;
         const rowHeight = 22;
         const rowCount = orderedSubjects.length + 1;
@@ -556,7 +553,7 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
           sno++;
         }
 
-        // Draw table grid (thicker lines)
+        // Draw table grid
         doc.lineWidth(1).strokeColor("#000");
         doc.moveTo(col1, tableTop).lineTo(col1, tableTop + rowCount * rowHeight).stroke();
         doc.moveTo(col2, tableTop).lineTo(col2, tableTop + rowCount * rowHeight).stroke();
@@ -578,12 +575,12 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         const mottoY = afterTableY + 35;
         doc.fontSize(10).font("Helvetica").text(SETTINGS.footer, 50, mottoY, { align: "center" });
 
-        // Signature block (left-aligned, larger font)
+        // Signature block (right-aligned, at x=400)
         const sigY = mottoY + 45;
         doc.fontSize(12).fillColor("black");
-        doc.text(SETTINGS.headTeacher, 50, sigY, { align: "left" });
-        doc.text(SETTINGS.headTeacherRank, 50, sigY + 18, { align: "left" });
-        doc.text(SETTINGS.headTeacherTitle, 50, sigY + 36, { align: "left" });
+        doc.text(SETTINGS.headTeacher, 400, sigY, { align: "right", width: 150 });
+        doc.text(SETTINGS.headTeacherRank, 400, sigY + 18, { align: "right", width: 150 });
+        doc.text(SETTINGS.headTeacherTitle, 400, sigY + 36, { align: "right", width: 150 });
 
         // QR Code (bottom left, dynamically placed)
         const qrY = sigY + 70;
