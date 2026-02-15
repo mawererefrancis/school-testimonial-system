@@ -40,7 +40,7 @@ let LOGO2 = null;
 let DATABASE = {};
 let serialCounter = 1;
 
-// ================== SUBJECT MAPPING ==================
+// ================== SUBJECT MAPPING (UPDATED) ==================
 const SUBJECT_MAP = {
   ENG: "ENGLISH",
   HIS: "HISTORY",
@@ -55,11 +55,14 @@ const SUBJECT_MAP = {
   IRE: "IRE",
   AGR: "AGRICULTURE",
   ICT: "ICT",
-  DHO: "DHOPADOLA",
+  DHP: "DHOPADHOLA",      // Added
   LIT: "LITERATURE IN ENGLISH",
   ENT: "ENTREPRENEURSHIP EDUCATION",
   KIS: "KISWAHILI",
   LAN: "LANGO",
+  PE:  "PHYSICAL EDUCATION",  // Added
+  PA:  "PERFORMING ARTS",      // Added
+  FRE: "FRENCH",                // Added
 };
 
 const SUBJECT_ORDER = [
@@ -76,11 +79,14 @@ const SUBJECT_ORDER = [
   "IRE",
   "AGRICULTURE",
   "ICT",
-  "DHOPADOLA",
+  "DHOPADHOLA",                // Added
   "LITERATURE IN ENGLISH",
   "ENTREPRENEURSHIP EDUCATION",
   "KISWAHILI",
   "LANGO",
+  "PHYSICAL EDUCATION",        // Added
+  "PERFORMING ARTS",           // Added
+  "FRENCH",                     // Added
 ];
 
 // ================== LOGIN PAGE ==================
