@@ -43,7 +43,7 @@ let serialCounter = 1;
 // ================== SUBJECT MAPPING (UPDATED) ==================
 const SUBJECT_MAP = {
   ENG: "ENGLISH",
-  HIS: "HISTORY",
+  HIS: "HISTORY & POL. EDUC.",    // Updated
   GEO: "GEOGRAPHY",
   MAT: "MATHEMATICS",
   PHY: "PHYSICS",
@@ -55,19 +55,19 @@ const SUBJECT_MAP = {
   IRE: "IRE",
   AGR: "AGRICULTURE",
   ICT: "ICT",
-  DHP: "DHOPADHOLA",      // Added
+  DHP: "DHOPADHOLA",
   LIT: "LITERATURE IN ENGLISH",
   ENT: "ENTREPRENEURSHIP EDUCATION",
   KIS: "KISWAHILI",
   LAN: "LANGO",
-  PE:  "PHYSICAL EDUCATION",  // Added
-  PA:  "PERFORMING ARTS",      // Added
-  FRE: "FRENCH",                // Added
+  PE:  "PHYSICAL EDUCATION",
+  PA:  "PERFORMING ARTS",
+  FRE: "FRENCH",
 };
 
 const SUBJECT_ORDER = [
   "ENGLISH",
-  "HISTORY",
+  "HISTORY & POL. EDUC.",         // Updated
   "GEOGRAPHY",
   "MATHEMATICS",
   "PHYSICS",
@@ -79,14 +79,14 @@ const SUBJECT_ORDER = [
   "IRE",
   "AGRICULTURE",
   "ICT",
-  "DHOPADHOLA",                // Added
+  "DHOPADHOLA",
   "LITERATURE IN ENGLISH",
   "ENTREPRENEURSHIP EDUCATION",
   "KISWAHILI",
   "LANGO",
-  "PHYSICAL EDUCATION",        // Added
-  "PERFORMING ARTS",           // Added
-  "FRENCH",                     // Added
+  "PHYSICAL EDUCATION",
+  "PERFORMING ARTS",
+  "FRENCH",
 ];
 
 // ================== LOGIN PAGE ==================
@@ -389,12 +389,12 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         const serialNumber = `UNEB/RASS/${genderCode}/${String(serialCounter).padStart(3, '0')}/2025`;
         serialCounter++;
 
-        // Parse grades
+        // Parse grades (now accepts A-E)
         const gradeMap = {};
         if (achievements) {
           const parts = achievements.split(" ");
           for (const part of parts) {
-            const match = part.match(/^([A-Z]+)-([A-D])$/);
+            const match = part.match(/^([A-Z]+)-([A-E])$/);  // Updated to A-E
             if (match) {
               const code = match[1];
               const grade = match[2];
@@ -436,7 +436,7 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         doc.fontSize(8).fillColor("#FF0000").text(serialNumber, 45, 45, { align: "left" });
 
         // ---------- LOGOS (fixed height 70px, bottom-aligned with title) ----------
-        const titleY = 170; // baseline of "UCE TESTIMONIAL 2025"
+        const titleY = 170;
         const logoHeight = 70;
 
         if (LOGO1 && fs.existsSync(LOGO1)) {
@@ -455,23 +455,47 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         // Title
         doc.fontSize(14).fillColor("#003366").text("UCE TESTIMONIAL 2025.", 0, titleY, { align: "center", underline: true });
 
-        // ---------- CANDIDATE DETAILS BOX ----------
-        const boxTop = 210;
+        // ---------- CANDIDATE DETAILS BOX (dynamic height for long names) ----------
         const boxLeft = 45;
         const boxWidth = 520;
         const boxPadding = 10;
+        
+        // Calculate if name needs two lines
+        const nameLength = name.length;
+        const boxHeight = nameLength > 35 ? 120 : 100; // Taller box for long names
+        
+        const boxTop = 210;
 
-        doc.roundedRect(boxLeft, boxTop, boxWidth, 100, 5).lineWidth(1).strokeColor("#CCCCCC").stroke();
+        doc.roundedRect(boxLeft, boxTop, boxWidth, boxHeight, 5).lineWidth(1).strokeColor("#CCCCCC").stroke();
 
         doc.fontSize(11).fillColor("black");
-        doc.text(`CANDIDATE'S NAME: ${name}`, boxLeft + boxPadding, boxTop + boxPadding);
-        doc.text(`INDEX NO: ${indexNo}`, boxLeft + 300, boxTop + boxPadding);
-        doc.text(`SEX: ${gender}`, boxLeft + boxPadding, boxTop + boxPadding + 20);
-        doc.text(`DoB: ${dob}`, boxLeft + 200, boxTop + boxPadding + 20);
-        doc.text("LIN............................................", boxLeft + boxPadding, boxTop + boxPadding + 40);
+        
+        // Handle long names that might overflow
+        if (nameLength > 35) {
+          // Split name into two lines
+          const nameParts = name.split(' ');
+          const midPoint = Math.ceil(nameParts.length / 2);
+          const line1 = nameParts.slice(0, midPoint).join(' ');
+          const line2 = nameParts.slice(midPoint).join(' ');
+          
+          doc.text(`CANDIDATE'S NAME: ${line1}`, boxLeft + boxPadding, boxTop + boxPadding);
+          doc.text(`${line2}`, boxLeft + boxPadding + 120, boxTop + boxPadding + 18);
+          doc.text(`INDEX NO: ${indexNo}`, boxLeft + 300, boxTop + boxPadding);
+          
+          doc.text(`SEX: ${gender}`, boxLeft + boxPadding, boxTop + boxPadding + 40);
+          doc.text(`DoB: ${dob}`, boxLeft + 200, boxTop + boxPadding + 40);
+          doc.text("LIN............................................", boxLeft + boxPadding, boxTop + boxPadding + 60);
+        } else {
+          doc.text(`CANDIDATE'S NAME: ${name}`, boxLeft + boxPadding, boxTop + boxPadding);
+          doc.text(`INDEX NO: ${indexNo}`, boxLeft + 300, boxTop + boxPadding);
+          
+          doc.text(`SEX: ${gender}`, boxLeft + boxPadding, boxTop + boxPadding + 20);
+          doc.text(`DoB: ${dob}`, boxLeft + 200, boxTop + boxPadding + 20);
+          doc.text("LIN............................................", boxLeft + boxPadding, boxTop + boxPadding + 40);
+        }
 
         // ---------- TABLE ----------
-        const tableTop = boxTop + 120;
+        const tableTop = boxTop + boxHeight + 20; // Adjust based on box height
         const col1 = 50, col2 = 120, col3 = 320, col4 = 550;
         const rowHeight = 22;
         const rowCount = orderedSubjects.length + 1;
@@ -514,10 +538,9 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         doc.fontSize(10).font("Helvetica").text(SETTINGS.footer, 50, mottoY, { align: "center" });
 
         // ---------- SIGNATURE BLOCK (with dotted line) ----------
-        const sigY = mottoY + 60;          // increased space
-        const sigX = 350;                  // left edge for all lines
+        const sigY = mottoY + 60;
+        const sigX = 350;
         doc.fontSize(12).fillColor("black");
-        // Dotted line for signature
         doc.text("....................................", sigX, sigY - 10, { align: "left" });
         doc.text(SETTINGS.headTeacher, sigX, sigY, { align: "left" });
         doc.text(SETTINGS.headTeacherRank, sigX, sigY + 18, { align: "left" });
