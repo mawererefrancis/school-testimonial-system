@@ -40,10 +40,10 @@ let LOGO2 = null;
 let DATABASE = {};
 let serialCounter = 1;
 
-// ================== SUBJECT MAPPING (UPDATED) ==================
+// ================== SUBJECT MAPPING ==================
 const SUBJECT_MAP = {
   ENG: "ENGLISH",
-  HIS: "HISTORY & POL. EDUC.",    // Updated
+  HIS: "HISTORY & POL. EDUC.",
   GEO: "GEOGRAPHY",
   MAT: "MATHEMATICS",
   PHY: "PHYSICS",
@@ -67,7 +67,7 @@ const SUBJECT_MAP = {
 
 const SUBJECT_ORDER = [
   "ENGLISH",
-  "HISTORY & POL. EDUC.",         // Updated
+  "HISTORY & POL. EDUC.",
   "GEOGRAPHY",
   "MATHEMATICS",
   "PHYSICS",
@@ -89,87 +89,174 @@ const SUBJECT_ORDER = [
   "FRENCH",
 ];
 
-// ================== LOGIN PAGE ==================
+// ================== LOGIN PAGE (IMPROVED) ==================
 app.get("/", (req, res) => {
   res.send(`
   <!DOCTYPE html>
-  <html>
+  <html lang="en">
   <head>
-    <title>School Testimonial System</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduTestify · Login</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-      * { box-sizing: border-box; margin: 0; padding: 0; }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
       body {
-        font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
-        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
         min-height: 100vh;
+        background: linear-gradient(145deg, #0f2b3d 0%, #1b4a6b 100%);
         display: flex;
         align-items: center;
         justify-content: center;
-        padding: 20px;
+        padding: 1.5rem;
+      }
+      .login-container {
+        width: 100%;
+        max-width: 440px;
+      }
+      .brand {
+        text-align: center;
+        margin-bottom: 2rem;
+      }
+      .brand h1 {
+        font-size: 2.5rem;
+        font-weight: 700;
+        color: white;
+        letter-spacing: -0.5px;
+        text-shadow: 0 4px 10px rgba(0,0,0,0.2);
+      }
+      .brand p {
+        color: rgba(255,255,255,0.8);
+        font-size: 1rem;
+        margin-top: 0.5rem;
       }
       .card {
-        background: white;
-        border-radius: 20px;
-        padding: 40px;
-        width: 100%;
-        max-width: 420px;
-        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
-        animation: fadeIn 0.6s ease-out;
+        background: rgba(255, 255, 255, 0.95);
+        backdrop-filter: blur(10px);
+        border-radius: 32px;
+        padding: 2.5rem 2rem;
+        box-shadow: 0 30px 50px rgba(0, 0, 0, 0.3), 0 0 0 1px rgba(255,255,255,0.2);
+        transition: transform 0.3s ease;
       }
-      @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(20px); }
-        to { opacity: 1; transform: translateY(0); }
+      .card:hover {
+        transform: translateY(-5px);
       }
       h2 {
-        color: #333;
-        margin-bottom: 30px;
+        color: #0b2a41;
+        font-size: 1.8rem;
         font-weight: 600;
-        text-align: center;
-        font-size: 28px;
+        margin-bottom: 0.25rem;
+      }
+      .sub {
+        color: #4a5568;
+        font-size: 0.9rem;
+        margin-bottom: 2rem;
+        border-left: 4px solid #2b6c9e;
+        padding-left: 1rem;
+      }
+      .input-group {
+        margin-bottom: 1.5rem;
+        position: relative;
+      }
+      .input-group i {
+        position: absolute;
+        left: 16px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: #2b6c9e;
+        font-size: 1.2rem;
       }
       input {
         width: 100%;
-        padding: 15px;
-        margin: 10px 0;
-        border: 2px solid #e0e0e0;
-        border-radius: 10px;
-        font-size: 16px;
-        transition: 0.3s;
+        padding: 1rem 1rem 1rem 3rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 60px;
+        font-size: 1rem;
+        transition: all 0.2s;
+        background: white;
       }
       input:focus {
-        border-color: #667eea;
+        border-color: #2b6c9e;
         outline: none;
-        box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
+        box-shadow: 0 0 0 4px rgba(43,108,158,0.2);
       }
       button {
         width: 100%;
-        padding: 15px;
-        background: #667eea;
+        padding: 1rem;
+        background: linear-gradient(135deg, #1e4b6e, #12344d);
         color: white;
         border: none;
-        border-radius: 10px;
-        font-size: 16px;
+        border-radius: 60px;
+        font-size: 1.1rem;
         font-weight: 600;
         cursor: pointer;
-        transition: 0.3s;
-        margin-top: 20px;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.75rem;
+        box-shadow: 0 8px 20px rgba(0,0,0,0.2);
       }
       button:hover {
-        background: #5a67d8;
-        transform: translateY(-2px);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.1);
+        background: linear-gradient(135deg, #235f88, #17415f);
+        transform: scale(1.02);
+      }
+      .developer {
+        margin-top: 2.5rem;
+        text-align: center;
+        color: rgba(255,255,255,0.9);
+        font-size: 0.95rem;
+        border-top: 1px solid rgba(255,255,255,0.2);
+        padding-top: 1.5rem;
+      }
+      .developer i {
+        margin: 0 4px;
+        color: #ffd966;
+      }
+      .developer a {
+        color: white;
+        text-decoration: none;
+        font-weight: 500;
+        border-bottom: 1px dotted rgba(255,255,255,0.4);
+      }
+      .developer a:hover {
+        border-bottom-color: white;
       }
     </style>
   </head>
   <body>
-    <div class="card">
-      <h2>🔐 Admin Login</h2>
-      <form method="POST" action="/dashboard">
-        <input name="username" placeholder="Username" required autofocus>
-        <input name="password" type="password" placeholder="Password" required>
-        <button>Login</button>
-      </form>
+    <div class="login-container">
+      <div class="brand">
+        <h1>📘 EduTestify</h1>
+        <p>School Testimonial Generator</p>
+      </div>
+      <div class="card">
+        <h2>Welcome back</h2>
+        <div class="sub">Sign in to your account</div>
+        <form method="POST" action="/dashboard">
+          <div class="input-group">
+            <i class="fas fa-user"></i>
+            <input type="text" name="username" placeholder="Username" required autofocus>
+          </div>
+          <div class="input-group">
+            <i class="fas fa-lock"></i>
+            <input type="password" name="password" placeholder="Password" required>
+          </div>
+          <button type="submit">
+            <i class="fas fa-arrow-right-to-bracket"></i> Login
+          </button>
+        </form>
+      </div>
+      <div class="developer">
+        <i class="fas fa-code"></i> Developed by <strong>Mawerere Francis</strong><br>
+        📞 <a href="tel:+256788223215">0788223215</a> · 
+        ✉️ <a href="mailto:mawererefrancis@gmail.com">mawererefrancis@gmail.com</a><br>
+        <i class="fab fa-whatsapp"></i> WhatsApp <a href="https://wa.me/256788223215">+256788223215</a>
+      </div>
     </div>
   </body>
   </html>
@@ -183,155 +270,304 @@ app.post("/dashboard", async (req, res) => {
   res.send(DASHBOARD_HTML());
 });
 
+// ================== DASHBOARD (IMPROVED) ==================
 function DASHBOARD_HTML() {
+  // Status indicators for logos
+  const logo1Status = LOGO1 ? '✅ Uploaded' : '❌ Not uploaded';
+  const logo2Status = LOGO2 ? '✅ Uploaded' : '❌ Not uploaded';
+  
   return `
   <!DOCTYPE html>
-  <html>
+  <html lang="en">
   <head>
-    <title>Dashboard | Testimonial Generator</title>
-    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EduTestify · Dashboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
     <style>
-      * { box-sizing: border-box; margin: 0; padding: 0; }
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      }
       body {
-        font-family: 'Segoe UI', Roboto, system-ui, sans-serif;
-        background: #f7fafc;
-        padding: 30px 20px;
+        background: #f0f5fa;
+        padding: 2rem;
         min-height: 100vh;
-        display: flex;
-        flex-direction: column;
       }
       .container {
-        max-width: 900px;
+        max-width: 1100px;
         margin: 0 auto;
-        flex: 1;
       }
-      h1 {
-        color: #2d3748;
-        font-weight: 700;
-        margin-bottom: 30px;
+      .header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 2.5rem;
+      }
+      .header h1 {
         font-size: 2rem;
-        border-left: 8px solid #667eea;
-        padding-left: 20px;
+        font-weight: 700;
+        color: #0b2a41;
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
       }
-      .box {
+      .header h1 i {
+        color: #2b6c9e;
         background: white;
+        padding: 0.5rem;
         border-radius: 16px;
-        padding: 30px;
-        margin-bottom: 30px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-        border: 1px solid #edf2f7;
+        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
       }
-      h3 {
-        color: #4a5568;
-        margin-bottom: 20px;
-        font-size: 1.4rem;
-        font-weight: 600;
-      }
-      input, textarea, button, input[type="file"] {
-        width: 100%;
-        padding: 12px 16px;
-        margin: 8px 0;
-        border: 2px solid #e2e8f0;
-        border-radius: 10px;
-        font-size: 1rem;
-        transition: 0.2s;
-        font-family: inherit;
-      }
-      input:focus, textarea:focus {
-        border-color: #667eea;
-        outline: none;
-        box-shadow: 0 0 0 3px rgba(102,126,234,0.1);
-      }
-      textarea {
-        min-height: 80px;
-        resize: vertical;
-      }
-      button {
-        background: #667eea;
-        color: white;
-        font-weight: 600;
-        border: none;
-        cursor: pointer;
-        margin-top: 15px;
-      }
-      button:hover {
-        background: #5a67d8;
-        transform: translateY(-1px);
-        box-shadow: 0 10px 20px rgba(0,0,0,0.05);
-      }
-      .logout {
-        text-align: right;
-        margin-bottom: 20px;
-      }
-      .logout a {
-        color: #e53e3e;
+      .logout-btn {
+        background: white;
+        padding: 0.7rem 1.5rem;
+        border-radius: 40px;
+        color: #b22234;
         text-decoration: none;
         font-weight: 500;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        transition: all 0.2s;
+        border: 1px solid rgba(0,0,0,0.05);
+      }
+      .logout-btn i {
+        margin-right: 0.5rem;
+      }
+      .logout-btn:hover {
+        background: #b22234;
+        color: white;
+        border-color: #b22234;
+      }
+      .dashboard-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(340px, 1fr));
+        gap: 1.8rem;
+      }
+      .card {
+        background: white;
+        border-radius: 28px;
+        padding: 1.8rem;
+        box-shadow: 0 15px 35px rgba(0, 20, 40, 0.08);
+        border: 1px solid rgba(255,255,255,0.6);
+        backdrop-filter: blur(4px);
+        transition: transform 0.2s, box-shadow 0.2s;
+      }
+      .card:hover {
+        transform: translateY(-4px);
+        box-shadow: 0 25px 45px rgba(0, 20, 40, 0.12);
+      }
+      .card-header {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+      }
+      .card-header i {
+        font-size: 2rem;
+        color: #2b6c9e;
+        background: #e6f0f9;
+        padding: 0.8rem;
+        border-radius: 18px;
+      }
+      .card-header h3 {
+        font-size: 1.3rem;
+        font-weight: 600;
+        color: #163a57;
+      }
+      .status-badge {
+        background: #edf4fc;
+        padding: 0.25rem 1rem;
+        border-radius: 40px;
+        font-size: 0.85rem;
+        color: #1e4b6e;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.4rem;
+      }
+      .divider {
+        height: 1px;
+        background: linear-gradient(90deg, transparent, #cbd5e0, transparent);
+        margin: 1.5rem 0;
+      }
+      .form-group {
+        margin-bottom: 1.2rem;
+      }
+      label {
+        font-size: 0.85rem;
+        font-weight: 600;
+        color: #4a5568;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        display: block;
+        margin-bottom: 0.3rem;
+      }
+      input, textarea, input[type="file"] {
+        width: 100%;
+        padding: 0.8rem 1rem;
+        border: 2px solid #e2e8f0;
+        border-radius: 16px;
+        font-size: 0.95rem;
+        transition: 0.2s;
+        background: #fafdff;
+      }
+      input:focus, textarea:focus {
+        border-color: #2b6c9e;
+        outline: none;
+        box-shadow: 0 0 0 3px rgba(43,108,158,0.15);
+        background: white;
+      }
+      textarea {
+        min-height: 70px;
+        resize: vertical;
+      }
+      .btn {
+        background: #1e4b6e;
+        color: white;
+        border: none;
+        padding: 0.9rem 1.8rem;
+        border-radius: 50px;
+        font-weight: 600;
+        font-size: 1rem;
+        cursor: pointer;
+        transition: 0.2s;
+        display: inline-flex;
+        align-items: center;
+        gap: 0.7rem;
+        box-shadow: 0 8px 20px rgba(0, 50, 90, 0.15);
+        width: 100%;
+        justify-content: center;
+      }
+      .btn:hover {
+        background: #235f88;
+        transform: scale(1.02);
+      }
+      .btn-secondary {
+        background: white;
+        color: #1e4b6e;
+        border: 2px solid #cbd5e0;
+        box-shadow: none;
+      }
+      .btn-secondary:hover {
+        background: #f1f9ff;
+        border-color: #2b6c9e;
       }
       .footer {
+        margin-top: 3rem;
         text-align: center;
-        margin-top: 40px;
-        padding: 20px;
-        background: white;
-        border-radius: 16px;
-        box-shadow: 0 10px 30px rgba(0,0,0,0.05);
-        border: 1px solid #edf2f7;
-        color: #4a5568;
-        font-size: 0.95rem;
+        color: #6b7b8c;
+        font-size: 0.9rem;
+        border-top: 1px dashed #cbd5e0;
+        padding-top: 2rem;
       }
-      .footer p {
-        margin: 5px 0;
-      }
-      hr {
-        border: none;
-        border-top: 2px dashed #e2e8f0;
-        margin: 30px 0;
+      .footer i {
+        color: #b22234;
       }
     </style>
   </head>
   <body>
     <div class="container">
-      <div class="logout">
-        <a href="/">← Logout</a>
-      </div>
-      <h1>📋 Testimonial Generator Dashboard</h1>
-
-      <div class="box">
-        <h3>🖼️ Upload Logos</h3>
-        <form action="/upload-assets" method="POST" enctype="multipart/form-data">
-          <input type="file" name="logo1" accept="image/*" required>
-          <input type="file" name="logo2" accept="image/*" required>
-          <button>Upload Logos</button>
-        </form>
+      <div class="header">
+        <h1><i class="fas fa-sliders-h"></i> Dashboard</h1>
+        <a href="/" class="logout-btn"><i class="fas fa-sign-out-alt"></i> Logout</a>
       </div>
 
-      <div class="box">
-        <h3>⚙️ School Settings</h3>
-        <form method="POST" action="/settings">
-          <input name="schoolName" placeholder="School Name" value="${SETTINGS.schoolName}">
-          <input name="address" placeholder="Address & Phone" value="${SETTINGS.address}">
-          <textarea name="vision" placeholder="Vision">${SETTINGS.vision}</textarea>
-          <textarea name="mission" placeholder="Mission">${SETTINGS.mission}</textarea>
-          <input name="footer" placeholder="Footer Motto" value="${SETTINGS.footer}">
-          <input name="headTeacher" placeholder="Head Teacher Name" value="${SETTINGS.headTeacher}">
-          <input name="headTeacherRank" placeholder="Head Teacher Rank" value="${SETTINGS.headTeacherRank}">
-          <input name="headTeacherTitle" placeholder="Head Teacher Title" value="${SETTINGS.headTeacherTitle}">
-          <button>Save Settings</button>
-        </form>
+      <div class="dashboard-grid">
+        <!-- LOGO UPLOAD CARD -->
+        <div class="card">
+          <div class="card-header">
+            <i class="fas fa-images"></i>
+            <h3>Logo Management</h3>
+          </div>
+          <div class="status-badge">
+            <i class="fas fa-circle" style="color: ${LOGO1 ? '#2ecc71' : '#e74c3c'};"></i>
+            Left: ${logo1Status} · Right: ${logo2Status}
+          </div>
+          <div class="divider"></div>
+          <form action="/upload-assets" method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+              <label><i class="fas fa-chevron-circle-left"></i> Left Logo (school badge)</label>
+              <input type="file" name="logo1" accept="image/*">
+            </div>
+            <div class="form-group">
+              <label><i class="fas fa-chevron-circle-right"></i> Right Logo (UPDF etc.)</label>
+              <input type="file" name="logo2" accept="image/*">
+            </div>
+            <button type="submit" class="btn"><i class="fas fa-upload"></i> Upload Logos</button>
+          </form>
+        </div>
+
+        <!-- SCHOOL SETTINGS CARD -->
+        <div class="card">
+          <div class="card-header">
+            <i class="fas fa-school"></i>
+            <h3>School Details</h3>
+          </div>
+          <div class="divider"></div>
+          <form method="POST" action="/settings">
+            <div class="form-group">
+              <label>School Name</label>
+              <input name="schoolName" value="${SETTINGS.schoolName}">
+            </div>
+            <div class="form-group">
+              <label>Address & Phone</label>
+              <input name="address" value="${SETTINGS.address}">
+            </div>
+            <div class="form-group">
+              <label>Vision</label>
+              <textarea name="vision">${SETTINGS.vision}</textarea>
+            </div>
+            <div class="form-group">
+              <label>Mission</label>
+              <textarea name="mission">${SETTINGS.mission}</textarea>
+            </div>
+            <div class="form-group">
+              <label>Footer Motto</label>
+              <input name="footer" value="${SETTINGS.footer}">
+            </div>
+            <div class="form-group">
+              <label>Head Teacher Name</label>
+              <input name="headTeacher" value="${SETTINGS.headTeacher}">
+            </div>
+            <div class="form-group">
+              <label>Head Teacher Rank (optional)</label>
+              <input name="headTeacherRank" value="${SETTINGS.headTeacherRank}" placeholder="e.g. Maj.">
+            </div>
+            <div class="form-group">
+              <label>Head Teacher Title (optional)</label>
+              <input name="headTeacherTitle" value="${SETTINGS.headTeacherTitle}" placeholder="e.g. HEAD TEACHER">
+            </div>
+            <button type="submit" class="btn"><i class="fas fa-save"></i> Save Settings</button>
+          </form>
+        </div>
+
+        <!-- GENERATION CARD -->
+        <div class="card">
+          <div class="card-header">
+            <i class="fas fa-file-pdf"></i>
+            <h3>Generate Testimonials</h3>
+          </div>
+          <div class="divider"></div>
+          <form action="/generate" method="POST" enctype="multipart/form-data">
+            <div class="form-group">
+              <label><i class="fas fa-file-excel"></i> Excel File (.xlsx, .xls, .csv)</label>
+              <input type="file" name="excel" accept=".xlsx, .xls, .csv" required>
+            </div>
+            <div class="form-group">
+              <p style="font-size:0.85rem; color:#4b6584;"><i class="fas fa-info-circle"></i> Ensure columns: Candidate_Name, IndexNo, Sex, DATE OF BIRTH, Result, SUBJECT ACHIEVEMENTS, PROJECT WORK</p>
+            </div>
+            <button type="submit" class="btn btn-secondary"><i class="fas fa-file-archive"></i> Generate & Download ZIP</button>
+          </form>
+        </div>
       </div>
 
-      <div class="box">
-        <h3>📊 Generate Testimonials</h3>
-        <form action="/generate" method="POST" enctype="multipart/form-data">
-          <input type="file" name="excel" accept=".xlsx, .xls, .csv" required>
-          <button>Generate ZIP with PDFs</button>
-        </form>
-      </div>
-
+      <!-- DEVELOPER FOOTER (same as login) -->
       <div class="footer">
-        <p><strong>Mawerere Francis</strong></p>
-        <p>📞 Tel: 0788223215 | ✉️ Email: mawererefrancis@gmail.com</p>
-        <p>💬 WhatsApp: +256788223215</p>
+        <i class="fas fa-code"></i> Developed by <strong>Mawerere Francis</strong> · 
+        📞 <a href="tel:+256788223215">0788223215</a> · 
+        ✉️ <a href="mailto:mawererefrancis@gmail.com">mawererefrancis@gmail.com</a> · 
+        <i class="fab fa-whatsapp"></i> <a href="https://wa.me/256788223215">+256788223215</a>
       </div>
     </div>
   </body>
@@ -343,15 +579,15 @@ function DASHBOARD_HTML() {
 app.post("/upload-assets", upload.fields([
   { name: "logo1" }, { name: "logo2" }
 ]), (req, res) => {
-  LOGO1 = req.files.logo1[0].path;
-  LOGO2 = req.files.logo2[0].path;
-  res.send("✅ Logos uploaded. <a href='/dashboard'>Back</a>");
+  if (req.files.logo1) LOGO1 = req.files.logo1[0].path;
+  if (req.files.logo2) LOGO2 = req.files.logo2[0].path;
+  res.send("✅ Logos uploaded. <a href='/dashboard'>Back to Dashboard</a>");
 });
 
 // ================== SETTINGS ==================
 app.post("/settings", (req, res) => {
   SETTINGS = { ...SETTINGS, ...req.body };
-  res.send("✅ Settings updated. <a href='/dashboard'>Back</a>");
+  res.send("✅ Settings updated. <a href='/dashboard'>Back to Dashboard</a>");
 });
 
 // ================== GENERATE TESTIMONIALS ==================
@@ -389,12 +625,12 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         const serialNumber = `UNEB/RASS/${genderCode}/${String(serialCounter).padStart(3, '0')}/2025`;
         serialCounter++;
 
-        // Parse grades (now accepts A-E)
+        // Parse grades (A-E)
         const gradeMap = {};
         if (achievements) {
           const parts = achievements.split(" ");
           for (const part of parts) {
-            const match = part.match(/^([A-Z]+)-([A-E])$/);  // Updated to A-E
+            const match = part.match(/^([A-Z]+)-([A-E])$/);
             if (match) {
               const code = match[1];
               const grade = match[2];
@@ -435,13 +671,15 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         // ---------- SERIAL NUMBER (top left, red) ----------
         doc.fontSize(8).fillColor("#FF0000").text(serialNumber, 45, 45, { align: "left" });
 
-        // ---------- LOGOS (fixed height 70px, bottom-aligned with title) ----------
+        // ---------- LOGOS (only if they exist) ----------
         const titleY = 170;
         const logoHeight = 70;
 
+        // Left logo (if exists)
         if (LOGO1 && fs.existsSync(LOGO1)) {
           doc.image(LOGO1, 45, titleY - logoHeight, { height: logoHeight });
         }
+        // Right logo (if exists) – placed only if present
         if (LOGO2 && fs.existsSync(LOGO2)) {
           doc.image(LOGO2, doc.page.width - 115, titleY - logoHeight, { height: logoHeight });
         }
@@ -455,24 +693,20 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         // Title
         doc.fontSize(14).fillColor("#003366").text("UCE TESTIMONIAL 2025.", 0, titleY, { align: "center", underline: true });
 
-        // ---------- CANDIDATE DETAILS BOX (dynamic height for long names) ----------
+        // ---------- CANDIDATE DETAILS BOX (dynamic) ----------
         const boxLeft = 45;
         const boxWidth = 520;
         const boxPadding = 10;
         
-        // Calculate if name needs two lines
         const nameLength = name.length;
-        const boxHeight = nameLength > 35 ? 120 : 100; // Taller box for long names
-        
+        const boxHeight = nameLength > 35 ? 120 : 100;
         const boxTop = 210;
 
         doc.roundedRect(boxLeft, boxTop, boxWidth, boxHeight, 5).lineWidth(1).strokeColor("#CCCCCC").stroke();
 
         doc.fontSize(11).fillColor("black");
         
-        // Handle long names that might overflow
         if (nameLength > 35) {
-          // Split name into two lines
           const nameParts = name.split(' ');
           const midPoint = Math.ceil(nameParts.length / 2);
           const line1 = nameParts.slice(0, midPoint).join(' ');
@@ -495,7 +729,7 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         }
 
         // ---------- TABLE ----------
-        const tableTop = boxTop + boxHeight + 20; // Adjust based on box height
+        const tableTop = boxTop + boxHeight + 20;
         const col1 = 50, col2 = 120, col3 = 320, col4 = 550;
         const rowHeight = 22;
         const rowCount = orderedSubjects.length + 1;
@@ -537,14 +771,26 @@ app.post("/generate", upload.single("excel"), async (req, res) => {
         const mottoY = afterTableY + 35;
         doc.fontSize(10).font("Helvetica").text(SETTINGS.footer, 50, mottoY, { align: "center" });
 
-        // ---------- SIGNATURE BLOCK (with dotted line) ----------
+        // ---------- SIGNATURE BLOCK (skip empty lines) ----------
         const sigY = mottoY + 60;
         const sigX = 350;
         doc.fontSize(12).fillColor("black");
+        
+        // Dotted line always present
         doc.text("....................................", sigX, sigY - 10, { align: "left" });
-        doc.text(SETTINGS.headTeacher, sigX, sigY, { align: "left" });
-        doc.text(SETTINGS.headTeacherRank, sigX, sigY + 18, { align: "left" });
-        doc.text(SETTINGS.headTeacherTitle, sigX, sigY + 36, { align: "left" });
+        
+        // Head teacher name (required)
+        if (SETTINGS.headTeacher && SETTINGS.headTeacher.trim() !== '') {
+          doc.text(SETTINGS.headTeacher, sigX, sigY, { align: "left" });
+        }
+        // Rank (optional)
+        if (SETTINGS.headTeacherRank && SETTINGS.headTeacherRank.trim() !== '') {
+          doc.text(SETTINGS.headTeacherRank, sigX, sigY + 18, { align: "left" });
+        }
+        // Title (optional)
+        if (SETTINGS.headTeacherTitle && SETTINGS.headTeacherTitle.trim() !== '') {
+          doc.text(SETTINGS.headTeacherTitle, sigX, sigY + 36, { align: "left" });
+        }
 
         // ---------- QR CODE ----------
         const qrY = sigY + 70;
